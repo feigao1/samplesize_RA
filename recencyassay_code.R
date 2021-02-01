@@ -1,3 +1,186 @@
+#### Sample Size Calculation based on Z ####
+# gamma0 = rec_gamma_R1(para); gamma1 = trial_gamma_T1(para,lambda1)
+samplesize_L_varZ <- function(gamma0, gamma1, para, R, R0 = 1){
+	alpha = para$alpha; beta = para$beta
+	gamma00 = gamma0$gamma00; gamma01 = gamma0$gamma01; gamma1 = gamma1$gamma1
+	vZ = varZ(para, R, R0)
+	Zsum = qnorm(1-alpha/2) + qnorm(beta,0,sqrt(vZ))
+	return((gamma00+gamma1)/(((log(R)-log(R0))/Zsum)^2-gamma01))
+}
+samplesize_CF <- function(para, R, R0 = 1){
+	gamma0_R1 = rec_gamma_R1(para)
+	gamma1_T1 = trial_gamma_T1(para,para$lambda0*R1)
+	return(ceiling(samplesize_L_varZ(gamma0_R1,gamma1_T1,para, R = R, R0=R0)))
+}
+
+#### Sample Size Calculation based on Z tilde ####
+# gamma0 = rec_gamma_R2(para); gamma1 = trial_gamma_T2(para,lambda1)
+samplesize_I <- function(gamma0, gamma1, para, R, R0 = 1){
+	alpha = para$alpha; beta = para$beta; lambda0 = para$lambda0
+	gamma00 = gamma0$gamma00; gamma01 = gamma0$gamma01; gamma1 = gamma1$gamma1
+	Zsum = qnorm(1-alpha/2) + qnorm(beta)
+	return((R0^2*gamma00+R^2*gamma1)/(((R-R0)/Zsum)^2-R0^2*gamma01))
+}
+
+#### Setting Parameters ####
+# lambda0, p, q, r, OmegaT, sigmaOmegaT, betaT, sigmabetaT, Time, tau, N, alpha, beta
+Setting1_para <- function(q, r, tau, N=NULL, alpha=0.05, beta=0.8){  ##### MOZ #####
+	MDRI = 118/365.25; RSE_MDRI = 0.07; FRR = 0.015; RSE_FRR = 0.25; Time = 2
+	lambda0 = 0.0101; p = 0.126;
+	sigmaMDRI = MDRI * RSE_MDRI; sigmaFRR = FRR * RSE_FRR
+	return(list(lambda0=lambda0, p=p, q=q, r=r, OmegaT=MDRI, sigmaOmegaT=sigmaMDRI, betaT=FRR, sigmabetaT=sigmaFRR, Time=Time, tau=tau, N=N, alpha=alpha, beta=beta))
+}
+Setting2_para <- function(q, r, tau, N=NULL, alpha=0.05, beta=0.8){ ##### SA AGYW 14-17 #####
+	MDRI = 118/365.25; RSE_MDRI = 0.07; FRR = 0.015; RSE_FRR = 0.25; Time = 2
+	lambda0 = 0.047; p = 0.276;
+	sigmaMDRI = MDRI * RSE_MDRI; sigmaFRR = FRR * RSE_FRR
+	return(list(lambda0=lambda0, p=p, q=q, r=r, OmegaT=MDRI, sigmaOmegaT=sigmaMDRI, betaT=FRR, sigmabetaT=sigmaFRR, Time=Time, tau=tau, N=N, alpha=alpha, beta=beta))
+}
+Setting3_para <- function(q, r, tau, N=NULL, alpha=0.05, beta=0.8){ ##### SA MSM #####
+	MDRI = 118/365.25; RSE_MDRI = 0.07; FRR = 0.015; RSE_FRR = 0.25; Time = 2
+	lambda0 = 0.125; p = 0.324;
+	sigmaMDRI = MDRI * RSE_MDRI; sigmaFRR = FRR * RSE_FRR
+	return(list(lambda0=lambda0, p=p, q=q, r=r, OmegaT=MDRI, sigmaOmegaT=sigmaMDRI, betaT=FRR, sigmabetaT=sigmaFRR, Time=Time, tau=tau, N=N, alpha=alpha, beta=beta))
+}
+Setting4_para <- function(q, r, tau, N=NULL, alpha=0.05, beta=0.8){ ##### USA MSM #####
+	MDRI = 142/365.25; RSE_MDRI = 0.1; FRR = 0.01; RSE_FRR = 0.25; Time = 2
+	lambda0 = 0.0342; p = 0.145; 
+	sigmaMDRI = MDRI * RSE_MDRI; sigmaFRR = FRR * RSE_FRR
+	return(list(lambda0=lambda0, p=p, q=q, r=r, OmegaT=MDRI, sigmaOmegaT=sigmaMDRI, betaT=FRR, sigmabetaT=sigmaFRR, Time=Time, tau=tau, N=N, alpha=alpha, beta=beta))
+}
+Setting5_para <- function(q=1, r=0.8,tau, N=NULL, alpha=0.05, beta=0.8){ ##### New Pop #####
+	MDRI = 140/365.25; RSE_MDRI = 0.12; FRR = 0.015; RSE_FRR = 0.25; Time = 2
+	lambda0 = 0.063; p = 0.18; 
+	sigmaMDRI = MDRI * RSE_MDRI; sigmaFRR = FRR * RSE_FRR
+	return(list(lambda0=lambda0, p=p, q=q, r=r, OmegaT=MDRI, sigmaOmegaT=sigmaMDRI, betaT=FRR, sigmabetaT=sigmaFRR, Time=Time, tau=tau, N=N, alpha=alpha, beta=beta))
+}
+
+
+#### Data Generation ####
+# N: total screening sample size
+# para: lambda0, p, q, r, OmegaT, sigmaOmegaT, betaT, sigmabetaT, Time, tau, alpha, beta
+# R: risk ratio, default=1
+generatedata <- function(N, para, R=1){
+	p = para$p; q = para$q; r = para$r; lambda0 = para$lambda0; lambda1 = lambda0*R; tau = para$tau
+	OmegaT = para$OmegaT; sigmaOmegaT = para$sigmaOmegaT; betaT = para$betaT; sigmabetaT = para$sigmabetaT; Time = para$Time
+	Npos = rbinom(1,N,p); Nneg = N - Npos
+	Npos_test = rbinom(1,Npos,q); Nneg_trial = rbinom(1,Nneg,r)
+	PR = betaT + lambda0*(1-p)/p*(OmegaT-betaT*Time)
+	NR = rbinom(1,Npos_test,PR)
+	wbetaT = rnorm(1,betaT,sigmabetaT); wOmegaT = rnorm(1,OmegaT,sigmaOmegaT)
+	Nevent = rpois(1,lambda1*tau*Nneg_trial)
+	return(list(Npos=Npos, Nneg=Nneg, Npos_test=Npos_test, Nneg_trial=Nneg_trial, NR=NR, Nevent=Nevent, PR=PR, wbetaT = wbetaT, wOmegaT = wOmegaT))
+}
+
+### lambda0 estimation ###
+rec_est <- function(N,Npos,Npos_test,NR,para){
+	pest = Npos/N; qest = Npos_test/Npos; Nneg = N - Npos
+	betaT = para$betaT; OmegaT = para$OmegaT; Time = para$Time
+	lambdaest = (NR/qest - betaT*Npos) / (Nneg*(OmegaT-betaT*Time))
+	para_est = list(lambda0=lambdaest, p=pest, q=qest, OmegaT=OmegaT, sigmaOmegaT = para$sigmaOmegaT, betaT=betaT, sigmabetaT = para$sigmabetaT, Time=Time)
+	varlog = rec_gamma_R1(para_est,N)$varlog
+	Est=lambdaest; SE = sqrt(varlog)*lambdaest;
+	CI = c(lambdaest-qnorm(0.975)*SE, lambdaest+qnorm(0.975)*SE)
+	CI_log = c(lambdaest * exp(-qnorm(0.975)*sqrt(varlog)), lambdaest * exp(qnorm(0.975)*sqrt(varlog)))
+	return(list(Est=Est,SE = SE,CI = CI, CI_log = CI_log))
+}
+
+### lambda1 estimation ###
+trial_est <- function(N,Nneg,Nneg_trial,Nevent,tau){
+	pest = 1-Nneg/N; rest = Nneg_trial/Nneg
+	lambdaest = Nevent /Nneg_trial/tau
+	para_est = list(p=pest,r=rest,tau=tau)
+	varlog = trial_gamma_T1(para_est,lambdaest, N)$varlog
+	Est=lambdaest; SE = sqrt(varlog)*lambdaest;
+	CI = c(lambdaest - qnorm(0.975)*SE, lambdaest + qnorm(0.975)*SE)
+	CI_log = c(lambdaest * exp(-qnorm(0.975)*sqrt(varlog)), lambdaest * exp(qnorm(0.975)*sqrt(varlog)))
+	return(list(Est=Est,SE = SE,CI = CI, CI_log = CI_log))
+}
+### log(R) = loglambda1 - loglambda0 estimation ###
+logHR_est<-function(lambda0_est,lambda1_est){
+	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; loglambda0_SE = lambda0_SE/lambda0
+	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; loglambda1_SE = lambda1_SE/lambda1
+	logratio = log(lambda1) - log(lambda0)
+	logratio_SE = sqrt(loglambda0_SE^2 + loglambda1_SE^2)
+	return(list(Est=logratio,SE = logratio_SE, CI = c(logratio - qnorm(0.975)*logratio_SE,logratio + qnorm(0.975)*logratio_SE)))
+}
+### rho = 1-R estimation ###
+efficacy_est<-function(lambda0_est,lambda1_est){
+	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; loglambda0_SE = lambda0_SE/lambda0
+	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; loglambda1_SE = lambda1_SE/lambda1
+	ratio = lambda1/lambda0
+	ratio_SE = sqrt(lambda0_SE^2 *lambda1^2/ lambda0^4 + lambda1_SE^2 / lambda0^2)
+	logratio_SE = sqrt(loglambda0_SE^2 + loglambda1_SE^2)
+	rho = 1 - ratio
+	rho_L = 1- (ratio + qnorm(0.975)*ratio_SE)
+	rho_U = 1- (ratio - qnorm(0.975)*ratio_SE)
+	rho_L_log = 1-ratio*exp(qnorm(0.975)*logratio_SE)
+	rho_U_log = 1-ratio*exp(-qnorm(0.975)*logratio_SE)
+	return(list(Est=rho,SE = ratio_SE, CI = c(rho_L,rho_U),CI_log = c(rho_L_log,rho_U_log)))
+}
+
+#### Rejection Indicator based on Z ####
+Rejection <- function(lambda0_est, lambda1_est, R0 = 1, Zcut = qnorm(0.975)){
+	if (lambda0_est$Est<=0) return(F)
+	if (lambda1_est$Est==0) {
+		Zstat = (log(lambda0_est$Est))/(lambda0_est$SE/lambda0_est$Est)
+		return(abs(Zstat)>Zcut)
+	}
+	Zstat = efficacy_test(lambda0_est,lambda1_est, R0)
+	return(abs(Zstat)>Zcut)
+}
+
+#### Rejection Indicator based on Z tilde ####
+Rejection_I <- function(lambda0_est, lambda1_est, R0 = 1, Zcut = qnorm(0.975)){
+	if (lambda0_est$Est<=0) return(F)
+	if (lambda1_est$Est==0) {
+		Zstat = lambda0_est$Est/lambda0_est$SE
+		return(abs(Zstat)>Zcut)
+	}
+	Zstat = efficacy_test_I(lambda0_est, lambda1_est, R0)
+	return(abs(Zstat)>Zcut)
+}
+
+### Z calculation ###
+efficacy_test<-function(lambda0_est,lambda1_est, R0 = 1){
+	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; V0 = (lambda0_SE/lambda0)^2
+	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; V1 = (lambda1_SE/lambda1)^2
+	wR = lambda1/lambda0; V = V0+V1
+	Z = (log(wR)-log(R0))/sqrt(V)
+	return(Z)
+}
+
+### Z tilde calculation ###
+efficacy_test_I<-function(lambda0_est,lambda1_est, R0 = 1){
+	wlambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; V0 = (lambda0_SE/wlambda0)^2
+	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; V1 = (lambda1_SE/lambda1)^2
+	wR = lambda1/wlambda0; V = R0^2*wlambda0^2*V0+lambda1^2*V1
+	Z = (lambda1 - R0* wlambda0)/sqrt(V)
+	return(Z)
+}
+
+#### Expected Numbers - Recency Assay ####
+rec_num <- function(N,para){
+	lambda0 = para$lambda0; p = para$p; q = para$q
+	OmegaT = para$OmegaT; betaT = para$betaT; Time = para$Time
+	PR = betaT + lambda0 *(1-p)/p*(OmegaT-betaT*Time)
+	ENR = N*p*PR*q
+	return(ENR)
+}
+#### Expected Numbers - Active Arm Trial ####
+inc_num <- function(N,lambda1,para){
+	p = para$p; r = para$r; tau = para$tau
+	Event = N * tau * (1-p) * r * lambda1
+	return(Event)	
+}
+
+#### Expected Numbers - Summary ####
+summarize_expectnum <-function(N, para, R){
+	p = para$p; q = para$q; lambda0 = para$lambda0; MDRI = para$OmegaT; FRR = para$betaT; Time = para$Time;
+	r = para$r; tau = para$tau
+	return(c(N,N*p*q,rec_num(N,para),N*(1-p)*r,inc_num(N,lambda0*R,para)))	
+}
+
 rec_gamma_R1<-function(para, N=NULL){
 	lambda0 = para$lambda0; p = para$p; q = para$q; OmegaT = para$OmegaT; betaT = para$betaT; Time = para$Time
 	sigma2Omega = para$sigmaOmegaT^2;sigma2beta = para$sigmabetaT^2
@@ -74,8 +257,6 @@ var_AB <- function(p,q,PR,OmegaT, betaT,r,lambda1,tau){
 	return(t(a)%*%cov_mat%*%a)
 }
 
-
-
 varZ <-function(para, R, R0 = 1){
 	p=para$p; q= para$q; OmegaT = para$OmegaT;betaT=para$betaT; r=para$r;tau =para$tau; Time = para$Time
 	lambda0 = para$lambda0; lambda1 = lambda0*R
@@ -85,136 +266,4 @@ varZ <-function(para, R, R0 = 1){
 	tB = PR*(1-PR)/(p*q*(PR-betaT)^2) + 1/p + 1/(1-p) + 1/((1-p)*r*lambda1*tau)
 	c = rep(0,2); c[1] = 1/sqrt(tB); c[2] = -tA/(2*tB^(3/2))
 	return(t(c)%*%varAB%*%c)
-}
-
-samplesize_L <- function(gamma0, gamma1, para, R, R0 = 1){
-	alpha = para$alpha; beta = para$beta
-	gamma00 = gamma0$gamma00; gamma01 = gamma0$gamma01; gamma1 = gamma1$gamma1
-	Zsum = qnorm(1-alpha/2) + qnorm(beta)
-	return((gamma00+gamma1)/(((log(R)-log(R0))/Zsum)^2-gamma01))
-}
-
-samplesize_L_varZ <- function(gamma0, gamma1, para, R, R0 = 1){
-	alpha = para$alpha; beta = para$beta
-	gamma00 = gamma0$gamma00; gamma01 = gamma0$gamma01; gamma1 = gamma1$gamma1
-	vZ = varZ(para, R, R0)
-	Zsum = qnorm(1-alpha/2) + qnorm(beta,0,sqrt(vZ))
-	return((gamma00+gamma1)/(((log(R)-log(R0))/Zsum)^2-gamma01))
-}
-
-samplesize_I <- function(gamma0, gamma1, para, R, R0 = 1){
-	alpha = para$alpha; beta = para$beta; lambda0 = para$lambda0
-	gamma00 = gamma0$gamma00; gamma01 = gamma0$gamma01; gamma1 = gamma1$gamma1
-	Zsum = qnorm(1-alpha/2) + qnorm(beta)
-	return((R0^2*gamma00+R^2*gamma1)/(((R-R0)/Zsum)^2-R0^2*gamma01))
-}
-
-Rejection <- function(lambda0_est, lambda1_est, R0 = 1, Zcut = qnorm(0.975)){
-	if (lambda0_est$Est<=0) return(F)
-	if (lambda1_est$Est==0) {
-		Zstat = (log(lambda0_est$Est))/(lambda0_est$SE/lambda0_est$Est)
-		return(abs(Zstat)>Zcut)
-	}
-	Zstat = efficacy_test(lambda0_est,lambda1_est, R0)
-	return(abs(Zstat)>Zcut)
-}
-
-Rejection_I <- function(lambda0_est, lambda1_est, R0 = 1, Zcut = qnorm(0.975)){
-	if (lambda0_est$Est<=0) return(F)
-	if (lambda1_est$Est==0) {
-		Zstat = lambda0_est$Est/lambda0_est$SE
-		return(abs(Zstat)>Zcut)
-	}
-	Zstat = efficacy_test_I(lambda0_est, lambda1_est, R0)
-	return(abs(Zstat)>Zcut)
-}
-
-rec_num <- function(N,para){
-	lambda0 = para$lambda0; p = para$p; q = para$q
-	OmegaT = para$OmegaT; betaT = para$betaT; Time = para$Time
-	PR = betaT + lambda0 *(1-p)/p*(OmegaT-betaT*Time)
-	ENR = N*p*PR*q
-	return(ENR)
-}
-inc_num <- function(N,lambda1,para){
-	p = para$p; r = para$r; tau = para$tau
-	Event = N * tau * (1-p) * r * lambda1
-	return(Event)	
-}
-
-summarize_expectnum <-function(N, para, R){
-	p = para$p; q = para$q; lambda0 = para$lambda0; MDRI = para$OmegaT; FRR = para$betaT; Time = para$Time;
-	r = para$r; tau = para$tau
-	return(c(N,N*p*q,rec_num(N,para),N*(1-p)*r,inc_num(N,lambda0*R,para)))	
-}
-
-generatedata <- function(N, para, R=1){
-	p = para$p; q = para$q; r = para$r; lambda0 = para$lambda0; lambda1 = lambda0*R; tau = para$tau
-	OmegaT = para$OmegaT; sigmaOmegaT = para$sigmaOmegaT; betaT = para$betaT; sigmabetaT = para$sigmabetaT; Time = para$Time
-	Npos = rbinom(1,N,p); Nneg = N - Npos
-	Npos_test = rbinom(1,Npos,q); Nneg_trial = rbinom(1,Nneg,r)
-	PR = betaT + lambda0*(1-p)/p*(OmegaT-betaT*Time)
-	NR = rbinom(1,Npos_test,PR)
-	wbetaT = rnorm(1,betaT,sigmabetaT); wOmegaT = rnorm(1,OmegaT,sigmaOmegaT)
-	Nevent = rpois(1,lambda1*tau*Nneg_trial)
-	return(list(Npos=Npos, Nneg=Nneg, Npos_test=Npos_test, Nneg_trial=Nneg_trial, NR=NR, Nevent=Nevent, PR=PR, wbetaT = wbetaT, wOmegaT = wOmegaT))
-}
-
-rec_est <- function(N,Npos,Npos_test,NR,para){
-	pest = Npos/N; qest = Npos_test/Npos; Nneg = N - Npos
-	betaT = para$betaT; OmegaT = para$OmegaT; Time = para$Time
-	lambdaest = (NR/qest - betaT*Npos) / (Nneg*(OmegaT-betaT*Time))
-	para_est = list(lambda0=lambdaest, p=pest, q=qest, OmegaT=OmegaT, sigmaOmegaT = para$sigmaOmegaT, betaT=betaT, sigmabetaT = para$sigmabetaT, Time=Time)
-	varlog = rec_gamma_R1(para_est,N)$varlog
-	Est=lambdaest; SE = sqrt(varlog)*lambdaest;
-	CI = c(lambdaest-qnorm(0.975)*SE, lambdaest+qnorm(0.975)*SE)
-	CI_log = c(lambdaest * exp(-qnorm(0.975)*sqrt(varlog)), lambdaest * exp(qnorm(0.975)*sqrt(varlog)))
-	return(list(Est=Est,SE = SE,CI = CI, CI_log = CI_log))
-}
-
-trial_est <- function(N,Nneg,Nneg_trial,Nevent,tau){
-	pest = 1-Nneg/N; rest = Nneg_trial/Nneg
-	lambdaest = Nevent /Nneg_trial/tau
-	para_est = list(p=pest,r=rest,tau=tau)
-	varlog = trial_gamma_T1(para_est,lambdaest, N)$varlog
-	Est=lambdaest; SE = sqrt(varlog)*lambdaest;
-	CI = c(lambdaest - qnorm(0.975)*SE, lambdaest + qnorm(0.975)*SE)
-	CI_log = c(lambdaest * exp(-qnorm(0.975)*sqrt(varlog)), lambdaest * exp(qnorm(0.975)*sqrt(varlog)))
-	return(list(Est=Est,SE = SE,CI = CI, CI_log = CI_log))
-}
-logHR_est<-function(lambda0_est,lambda1_est){
-	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; loglambda0_SE = lambda0_SE/lambda0
-	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; loglambda1_SE = lambda1_SE/lambda1
-	logratio = log(lambda1) - log(lambda0)
-	logratio_SE = sqrt(loglambda0_SE^2 + loglambda1_SE^2)
-	return(list(Est=logratio,SE = logratio_SE, CI = c(logratio - qnorm(0.975)*logratio_SE,logratio + qnorm(0.975)*logratio_SE)))
-}
-efficacy_est<-function(lambda0_est,lambda1_est){
-	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; loglambda0_SE = lambda0_SE/lambda0
-	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; loglambda1_SE = lambda1_SE/lambda1
-	ratio = lambda1/lambda0
-	ratio_SE = sqrt(lambda0_SE^2 *lambda1^2/ lambda0^4 + lambda1_SE^2 / lambda0^2)
-	logratio_SE = sqrt(loglambda0_SE^2 + loglambda1_SE^2)
-	rho = 1 - ratio
-	rho_L = 1- (ratio + qnorm(0.975)*ratio_SE)
-	rho_U = 1- (ratio - qnorm(0.975)*ratio_SE)
-	rho_L_log = 1-ratio*exp(qnorm(0.975)*logratio_SE)
-	rho_U_log = 1-ratio*exp(-qnorm(0.975)*logratio_SE)
-	return(list(Est=rho,SE = ratio_SE, CI = c(rho_L,rho_U),CI_log = c(rho_L_log,rho_U_log)))
-}
-
-efficacy_test<-function(lambda0_est,lambda1_est, R0 = 1){
-	lambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; V0 = (lambda0_SE/lambda0)^2
-	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; V1 = (lambda1_SE/lambda1)^2
-	wR = lambda1/lambda0; V = V0+V1
-	Z = (log(wR)-log(R0))/sqrt(V)
-	return(Z)
-}
-
-efficacy_test_I<-function(lambda0_est,lambda1_est, R0 = 1){
-	wlambda0 = lambda0_est$Est; lambda0_SE = lambda0_est$SE; V0 = (lambda0_SE/wlambda0)^2
-	lambda1 = lambda1_est$Est; lambda1_SE = lambda1_est$SE; V1 = (lambda1_SE/lambda1)^2
-	wR = lambda1/wlambda0; V = R0^2*wlambda0^2*V0+lambda1^2*V1
-	Z = (lambda1 - R0* wlambda0)/sqrt(V)
-	return(Z)
 }
