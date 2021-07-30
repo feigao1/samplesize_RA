@@ -6,5 +6,7 @@ samplesize_cal.R is the main code for replicating results in the arxiv paper: ht
 setting_code.R includes parameters for two settings for MSM and women trials.
 
 recencyassay_code.R includes main computation codes.
-    samplesize_CF: a function that calculates sample size with given input parameters para, hypothesis R0 vs R1, type I error alpha, and power beta.
-    power_CF: a function that calculates power with given input parameters para, hypothesis R0 vs R1, type I error alpha, and sample size N.
+
+samplesize_CF: a function that calculates sample size with given input parameters para, hypothesis R0 vs R1, type I error alpha, and power beta.
+
+power_CF: a function that calculates power with given input parameters para, hypothesis R0 vs R1, type I error alpha, and sample size N.
